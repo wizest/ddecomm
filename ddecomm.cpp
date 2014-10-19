@@ -1,8 +1,315 @@
+// References)
+// http://support.microsoft.com/kb/279721/ko
+// http://www.angelfire.com/biz/rhaminisys/ddeinfo.html
 // http://msdn.microsoft.com/en-us/library/windows/desktop/ms648711(v=vs.85).aspx
 // http://msdn.microsoft.com/en-us/library/windows/desktop/ms648713(v=vs.85).aspx
 // http://stackoverflow.com/questions/3306216/how-to-be-notified-of-any-update-from-dynamic-data-exchange-dde
 
-#include <hash_map>
+#include <Windows.h>
+#include <Ddeml.h>
+#include <string>
+
+#include "ddecomm.h"
+
+#define DDE_TIMOUT_MS       1000
+
+static HDDEDATA CALLBACK DdeCallback(
+        UINT uType,     // Transaction type.
+        UINT uFmt,      // Clipboard data format.
+        HCONV hconv,    // Handle to the conversation.
+        HSZ hsz1,       // Handle to a string depends on the type of the current transaction.
+        HSZ hsz2,       // Handle to a string depends on the type of the current transaction.
+        HDDEDATA hdata, // Handle to a global memory object depends on the type of the current transaction.
+        DWORD dwData1,  // Transaction-specific data.
+        DWORD dwData2)  // Transaction-specific data.
+{
+    QString msg = QString("uType=%1h, uFmt=%2h, hconv=%3h, hsz1=%4h, hsz2=%5h, hdata=%6h, dwData1=%7h, dwData2=%8h")
+            .arg(QString::number(uType, 16))
+            .arg(QString::number(uFmt, 16))
+            .arg(QString::number((int)hconv, 16))
+            .arg(QString::number((int)hsz1, 16))
+            .arg(QString::number((int)hsz2, 16))
+            .arg(QString::number((int)hdata, 16))
+            .arg(QString::number((int)dwData1, 16))
+            .arg(QString::number((int)dwData2), 16);
+
+    DdeComm* comm = DdeComm::getInstance();
+    comm->log(msg);
+
+
+
+
+
+
+    //    switch ( uType )
+    //    {
+    //    case XTYP_ADVDATA:
+
+    //       DDEreturn = (HDDEDATA) DDE_FACK;
+
+    //       if(hData)
+    //       {
+    //         // Lock the data so we can parse it
+    //         DWORD dwLength;
+    //         const char *pData = (const char *) DdeAccessData(hData, &dwLength);
+
+    //         DdeQueryString(theApp.dwDDEInst, hsz1, Buf, sizeof(Buf), CP_WINUNICODE);
+    //         strcat( Buf, ":" );
+    //         DdeQueryString(theApp.dwDDEInst, hsz2, Name, sizeof(Name), CP_WINUNICODE);
+    //         strcat( Buf, Name );
+    //         strcat( Buf, " - " );
+
+    //         if ( pData )
+    //            strcat( Buf, pData );
+    //         else
+    //            strcat( Buf, "pData is NULL" );
+
+    //         // If we are looking at a page, add the text in a fixed place, otherwise
+    //         // add to the data string.
+    //         if ( pDocument->m_FirstItem[0] == '+' )
+    //         {
+    //            // Name still contains the Fid, find the start if the number
+    //            int i = 0;
+    //            while ( Name[i] != ',' && Name[i] != 0 )
+    //               i++;
+    //            if ( Name[i] != 0 )
+    //               i++;
+    //            WORD RowNumber = atoi(Name+i) - pDocument->m_FirstFid;
+    //            if ( RowNumber < 25 )
+    //            {
+    //               LPSTR s = (LPSTR)(const char *)pDocument->m_DDEdata;
+    //               memcpy( s + ((pDocument->m_Cols+1)*RowNumber), pData, pDocument->m_Cols );
+
+    //               // Write the line directly onto the screen
+    //               pView->PaintLine(RowNumber, pData);
+    //            }
+    //         }
+    //         else
+    //         {
+    //            pDocument->AddDDEData( Buf );
+    //            pDocument->AddDDEData( "\n" );
+
+    //            pDocument->UpdateAllViews(NULL);
+
+    //         }
+
+    //         if ( pDocument->m_MessageBoxes )
+    //            MessageBox( NULL, Buf, (LPSTR) "Rddeclnt DDE XTYP_ADVDATA callback", MB_OK );
+
+
+    //         // Done with the data. Unlock and free the data handle.
+    //         DdeUnaccessData(hData);
+    //         DdeFreeDataHandle(hData);
+
+    //       }
+    //       else if ( pDocument->m_MessageBoxes )
+    //         MessageBox( NULL, (LPSTR) "hData NULL in XTYP_ADVDATA",
+    //                     (LPSTR) CallbackString, MB_OK );
+
+    //       break;
+
+    //    case XTYP_DISCONNECT:
+
+    //       if ( pDocument->m_MessageBoxes )
+    //          MessageBox( NULL, (LPSTR) "XTYP_DISCONNECT received",
+    //                      (LPSTR) CallbackString, MB_OK );
+
+    //       pDocument->AddDDEData( "Other party disconnected\n" );
+    //       pDocument->UpdateAllViews(NULL);
+
+    //       break;
+
+
+    return 0;
+}
+
+DdeComm::DdeComm(QObject *parent)
+    : QObject(parent),
+      mSync(QMutex::Recursive)
+{
+    initialize();
+}
+
+DdeComm::~DdeComm()
+{
+    release();
+}
+
+void DdeComm::initialize()
+{
+    QMutexLocker lock(&mSync);
+    if (mDdeInstance) {
+        log(tr("Already initiated: instance=%1h").arg(QString::number(mDdeInstance, 16)));
+        release();
+    }
+    DWORD inst = 0;
+    UINT result = DdeInitialize(&inst, (PFNCALLBACK) &DdeCallback, APPCLASS_STANDARD | APPCMD_CLIENTONLY ,0);
+    //    UINT result = DdeInitialize(
+    //                (LPDWORD) &inst,  // instance identifier
+    //                &DdeCallback,        // pointer to callback function
+    //                APPCLASS_MONITOR |  // this is a monitoring application
+    //                MF_CALLBACKS     |  // monitor callback functions
+    //                MF_CONV          |  // monitor conversation data
+    //                MF_ERRORS        |  // monitor DDEML errors
+    //                MF_HSZ_INFO      |  // monitor data handle activity
+    //                MF_LINKS         |  // monitor advise loops
+    //                MF_POSTMSGS      |  // monitor posted DDE messages
+    //                MF_SENDMSGS,        // monitor sent DDE messages
+    //                0);                 // reserved
+
+    if (result == DMLERR_NO_ERROR) {
+        mDdeInstance = inst;
+        log(tr("DDE initialization succeeded: instance=%1h").arg(QString::number(inst, 16)));
+    }
+    else {
+        log(tr("DDE initialization failed: result=%1h").arg(QString::number(result, 16)));
+    }
+}
+
+void DdeComm::release()
+{
+    QMutexLocker lock(&mSync);
+
+    DdeUninitialize(mDdeInstance);
+    mDdeInstance = 0;
+
+    log(tr("DDE released"));
+}
+
+static inline HCONV openConv(DWORD idInst, QString application, QString topic)
+{
+    //DDE Connect to Server using given AppName and topic.
+    HSZ hszApp = DdeCreateStringHandle(idInst, application.toStdWString().c_str(), CP_WINUNICODE);
+    HSZ hszTopic = DdeCreateStringHandle(idInst, topic.toStdWString().c_str(), CP_WINUNICODE);
+    HCONV hConv = DdeConnect(idInst, hszApp, hszTopic, NULL); // If the function fails, the return value is 0L.
+    DdeFreeStringHandle(idInst, hszApp);
+    DdeFreeStringHandle(idInst, hszTopic);
+    return hConv;
+}
+
+static inline void closeConv(HCONV hConv)
+{
+    DdeDisconnect(hConv);
+}
+
+QString DdeComm::request(QString application, QString topic, QString item)
+{
+    QString text;
+    DWORD idInst = mDdeInstance;
+    HCONV hConv = openConv(idInst, application, topic);
+    if (hConv) {
+        LPCWSTR szItem = item.toStdWString().c_str();
+        HSZ hszItem = DdeCreateStringHandle(idInst, szItem, CP_WINUNICODE);
+        HDDEDATA hData = DdeClientTransaction(NULL, 0, hConv, hszItem, CF_TEXT, XTYP_REQUEST, DDE_TIMOUT_MS, NULL);
+        DdeFreeStringHandle(idInst, hszItem);
+        if (hData)
+        {
+            char szResult[255];
+            DWORD size = DdeGetData(hData, (unsigned char *)szResult, sizeof(szResult), 0);
+            text = QString::fromLatin1(szResult, size);
+        }
+        else {
+            log(tr("No request transaction: app=%1, topic=%2, item=%3").arg(application).arg(topic).arg(item));
+        }
+        closeConv(hConv);
+    }
+    else
+        log(tr("No conversation opened"));
+    return text;
+}
+
+void DdeComm::poke(QString application, QString topic, QString item, QString text)
+{
+    DWORD idInst = mDdeInstance;
+    HCONV hConv = openConv(idInst, application, topic);
+    if (hConv) {
+        LPCWSTR szItem = item.toStdWString().c_str();
+        HSZ hszItem = DdeCreateStringHandle(idInst, szItem, CP_WINUNICODE);
+        QByteArray byteArray = text.toLocal8Bit();
+        byteArray.append((char)0);  // zero terminated string
+        DdeClientTransaction((LPBYTE)byteArray.data(), byteArray.size(), hConv, hszItem, CF_TEXT, XTYP_POKE, DDE_TIMOUT_MS, NULL);
+
+        DdeFreeStringHandle(idInst, hszItem);
+        closeConv(hConv);
+    }
+    else
+        log(tr("No conversation opened"));
+}
+
+void DdeComm::execute(QString application, QString topic, QString command)
+{
+    DWORD idInst = mDdeInstance;
+    HCONV hConv = openConv(idInst, application, topic);
+    if (hConv) {
+        QByteArray byteArray = command.toLocal8Bit();
+        byteArray.append((char)0);  // zero terminated string
+        HDDEDATA hData = DdeCreateDataHandle(idInst, (LPBYTE)byteArray.data(), byteArray.size(), 0, NULL, CF_TEXT, 0);
+        if (hData)   {
+            DdeClientTransaction((LPBYTE)hData, 0xFFFFFFFF, hConv, 0L, 0, XTYP_EXECUTE, DDE_TIMOUT_MS, NULL);
+            DdeFreeDataHandle(hData);
+        }
+        else {
+            log(tr("Command faild: app=%1, topic=%2,cmd=%3").arg(application).arg(topic).arg(command));
+        }
+        closeConv(hConv);
+    }
+    else
+        log(tr("No conversation opened"));
+}
+
+unsigned long DdeComm::advise(QString application, QString topic, QString item)
+{
+    DWORD idInst = mDdeInstance;
+    HCONV hConv = openConv(idInst, application, topic);
+    unsigned long conversation = (unsigned long)hConv;
+    if (hConv) {
+        LPCWSTR szItem = item.toStdWString().c_str();
+        HSZ hszItem = DdeCreateStringHandle(idInst, szItem, CP_WINUNICODE);
+        HDDEDATA hData = DdeClientTransaction(NULL, 0, hConv, hszItem, CF_TEXT, XTYP_ADVSTART, DDE_TIMOUT_MS, NULL);
+        DdeFreeStringHandle(idInst, hszItem);
+        if (hData) {
+            log(tr("New advice started: conv=%1h, app=%2, topic=%3, item=%4")
+                .arg(QString::number(conversation, 16)).arg(application).arg(topic).arg(item));
+            adviceStarted(conversation, application, topic, item);
+        }
+        else {
+            log(tr("No advice transaction: conv=%1h, app=%2, topic=%3, item=%4")
+                .arg(QString::number(conversation, 16)).arg(application).arg(topic).arg(item));
+            closeConv(hConv);
+        }
+    }
+    else
+        log(tr("No conversation opened"));
+    return conversation;
+}
+
+void DdeComm::unadvise(unsigned long conversation, QString item)
+{
+    DWORD idInst = mDdeInstance;
+    HCONV hConv = (HCONV)conversation;
+    if (hConv) {
+        LPCWSTR szItem = item.toStdWString().c_str();
+        HSZ hszItem = DdeCreateStringHandle(idInst, szItem, CP_WINUNICODE);
+        HDDEDATA hData = DdeClientTransaction(NULL, 0, hConv, hszItem, CF_TEXT, XTYP_ADVSTOP, DDE_TIMOUT_MS, NULL);
+        DdeFreeStringHandle(idInst, hszItem);
+        if (hData) {
+            log(tr("Advice canceled: conv=%1h, item=%2")
+                .arg(QString::number(conversation, 16)).arg(item));
+        }
+        else {
+            log(tr("No advice transaction: conv=%1h, item=%2")
+                .arg(QString::number(conversation, 16)).arg(item));
+        }
+        closeConv(hConv);
+        adviceStopped(conversation, item);
+    }
+    else
+        log(tr("No conversation opened"));
+}
+
+#if 0
+
+#include <map>
 
 #include <QMutexLocker>
 #include <QDebug>
@@ -13,13 +320,13 @@
 
 #include "ddecomm.h"
 
-using stdext::hash_map;
+using std::map;
 
 class DdeGlobal
 {
 private:
     QMutex mSync;
-    hash_map<HCONV, DdeComm* > mConvMap;
+    map<HCONV, DdeComm* > mConvMap;
 
     DdeGlobal()
         :mSync(QMutex::Recursive) {
@@ -28,7 +335,7 @@ private:
 public:
     DdeComm* getComm(HCONV conversation) {
         QMutexLocker lock(&mSync);
-        hash_map<HCONV, DdeComm* >::iterator it = mConvMap.find(conversation);
+        map<HCONV, DdeComm* >::iterator it = mConvMap.find(conversation);
         if (it == mConvMap.end())
             return 0;
         else
@@ -48,7 +355,7 @@ public:
 
     void removeAllConv(DdeComm* comm) {
         QMutexLocker lock(&mSync);
-        hash_map<HCONV, DdeComm* >::iterator it = mConvMap.begin();
+        map<HCONV, DdeComm* >::iterator it = mConvMap.begin();
         while(it != mConvMap.end()) {
             if(it->second == comm)
                 mConvMap.erase(it);
@@ -79,33 +386,33 @@ public:
         if (comm)
         {
             comm->log(QString("uType=%1h, uFmt=%2h, hconv=%3h, hsz1=%4h, hsz2=%5h, hdata=%6h, dwData1=%7h, dwData2=%8h")
-                .arg(QString::number(uType, 16))
-                .arg(QString::number(uFmt, 16))
-                .arg(QString::number((int)hconv, 16))
-                .arg(QString::number((int)hsz1, 16))
-                .arg(QString::number((int)hsz2, 16))
-                .arg(QString::number((int)hdata, 16))
-                .arg(QString::number((int)dwData1, 16))
-                .arg(QString::number((int)dwData2), 16));
+                      .arg(QString::number(uType, 16))
+                      .arg(QString::number(uFmt, 16))
+                      .arg(QString::number((int)hconv, 16))
+                      .arg(QString::number((int)hsz1, 16))
+                      .arg(QString::number((int)hsz2, 16))
+                      .arg(QString::number((int)hdata, 16))
+                      .arg(QString::number((int)dwData1, 16))
+                      .arg(QString::number((int)dwData2), 16));
 
-//                    switch(uType)
-//                    {
-//                    case XTYP_REQUEST:
-//                        printf("XTYP_REQUEST\n");
-//                        break;
-//                    }
+            //                    switch(uType)
+            //                    {
+            //                    case XTYP_REQUEST:
+            //                        printf("XTYP_REQUEST\n");
+            //                        break;
+            //                    }
         }
         else
         {
             qDebug() << "Unknown comm:" << QString("uType=%1h, uFmt=%2h, hconv=%3h, hsz1=%4h, hsz2=%5h, hdata=%6h, dwData1=%7h, dwData2=%8h")
-                .arg(QString::number(uType, 16))
-                .arg(QString::number(uFmt, 16))
-                .arg(QString::number((int)hconv, 16))
-                .arg(QString::number((int)hsz1, 16))
-                .arg(QString::number((int)hsz2, 16))
-                .arg(QString::number((int)hdata, 16))
-                .arg(QString::number((int)dwData1, 16))
-                .arg(QString::number((int)dwData2), 16);
+                        .arg(QString::number(uType, 16))
+                        .arg(QString::number(uFmt, 16))
+                        .arg(QString::number((int)hconv, 16))
+                        .arg(QString::number((int)hsz1, 16))
+                        .arg(QString::number((int)hsz2, 16))
+                        .arg(QString::number((int)hdata, 16))
+                        .arg(QString::number((int)dwData1, 16))
+                        .arg(QString::number((int)dwData2), 16);
         }
 
         return 0;
@@ -130,42 +437,43 @@ public:
 };
 
 DdeComm::DdeComm(QString appName, QString topicName, QObject *parent) :
+    QObject(parent),
     mSync(QMutex::Recursive),
-    mCtx(new DdeContext(appName, topicName)),
-    QObject(parent)
+    mCtx(new DdeContext(appName, topicName))
 {
+    initialize();
 }
 
 DdeComm::~DdeComm()
 {
-    terminate();
+    release();
     delete mCtx;
 }
 
-void DdeComm::initiate()
+void DdeComm::initialize()
 {
     QMutexLocker lock(&mSync);
     log(__FUNCTION__);
 
     if (mCtx->instance) {
         log(tr("Already initiated: instance=%1h").arg(QString::number(mCtx->instance, 16)));
-        terminate();
+        release();
     }
 
     DWORD inst = 0;
-//    UINT result = DdeInitialize(&inst, (PFNCALLBACK) &DdeGlobal::ddeCallback, APPCLASS_STANDARD | APPCMD_CLIENTONLY ,0);
+    //    UINT result = DdeInitialize(&inst, (PFNCALLBACK) &DdeGlobal::ddeCallback, APPCLASS_STANDARD | APPCMD_CLIENTONLY ,0);
     UINT result = DdeInitialize(
-            (LPDWORD) &inst,  // instance identifier
-            &DdeGlobal::ddeCallback,        // pointer to callback function
-            APPCLASS_MONITOR |  // this is a monitoring application
-            MF_CALLBACKS     |  // monitor callback functions
-            MF_CONV          |  // monitor conversation data
-            MF_ERRORS        |  // monitor DDEML errors
-            MF_HSZ_INFO      |  // monitor data handle activity
-            MF_LINKS         |  // monitor advise loops
-            MF_POSTMSGS      |  // monitor posted DDE messages
-            MF_SENDMSGS,        // monitor sent DDE messages
-            0);                 // reserved
+                (LPDWORD) &inst,  // instance identifier
+                &DdeGlobal::ddeCallback,        // pointer to callback function
+                APPCLASS_MONITOR |  // this is a monitoring application
+                MF_CALLBACKS     |  // monitor callback functions
+                MF_CONV          |  // monitor conversation data
+                MF_ERRORS        |  // monitor DDEML errors
+                MF_HSZ_INFO      |  // monitor data handle activity
+                MF_LINKS         |  // monitor advise loops
+                MF_POSTMSGS      |  // monitor posted DDE messages
+                MF_SENDMSGS,        // monitor sent DDE messages
+                0);                 // reserved
 
     if (result == DMLERR_NO_ERROR) {
         mCtx->application = DdeCreateStringHandle(inst, mCtx->appName.c_str(), 0);
@@ -192,7 +500,7 @@ void DdeComm::initiate()
 
 }
 
-void DdeComm::terminate()
+void DdeComm::release()
 {
     QMutexLocker lock(&mSync);
     log(__FUNCTION__);
@@ -284,9 +592,8 @@ void DdeComm::terminate()
 
 void Task::run()
 {
-    DdeComm* mon = new DdeComm("KBSTARDS", "eds");
-    connect(this, SIGNAL(destroyed()), mon, SLOT(deleteLater()));
-    mon->initiate();
+    //    DdeComm* mon = new DdeComm("KBSTARDS", "eds");
+    //    connect(this, SIGNAL(destroyed()), mon, SLOT(deleteLater()));
 }
 
 //    void Task::run()
@@ -496,3 +803,6 @@ void Task::run()
 //        Sleep(3000);
 //        return 1;
 //    }
+
+
+#endif

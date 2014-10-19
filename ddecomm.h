@@ -5,37 +5,45 @@
 #include <QMutex>
 #include <QByteArray>
 
-class DdeContext;   // Forward declaration
+/// @brief      DDE client
+/// @author     Sanghoon Kim <wizest@gmail.com>
+/// @date       2014-10-19
+/// @note       Only support CF_TEXT type
 class DdeComm : public QObject
 {
     Q_OBJECT    
+
 private:
     QMutex mSync;
-    DdeContext* const mCtx;
+    unsigned long mDdeInstance;
 
 public:
-    explicit DdeComm(QString appName, QString topicName, QObject *parent = 0);
+    static DdeComm* getInstance() {
+        static DdeComm instance;
+        return &instance;
+    }
+
+private:
+    explicit DdeComm(QObject *parent = 0);
     ~DdeComm();
 
-public slots:
-    void initiate();
-    void terminate();
+    void initialize();
+    void release();
 
-//    void request();
-//    void poke();
+public:
+    QString request(QString application, QString topic, QString item);
+    void poke(QString application, QString topic, QString item, QString text);
+    void execute(QString application, QString topic, QString command);
 
-//    void advise();
-//    void unadvise();
-
-//    void execute();
+    unsigned long advise(QString application, QString topic, QString item);
+    void unadvise(unsigned long conversation, QString item);
 
 signals:
-    void connected(bool isConnected);
-    void advised(QByteArray ddeData);
+    void adviceStarted(unsigned long conversation, QString application, QString topic, QString item);
+    void adviceStopped(unsigned long conversation, QString item);
+    void advised(unsigned long conversation, QString application, QString topic, QString item, QString text);
 
-    void log(QString msg);
-
-
+    void log(QString msg);   
 };
 
 #endif // DDECOMM_H

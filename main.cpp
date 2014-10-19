@@ -1,8 +1,6 @@
 #include <QCoreApplication>
 #include <QThread>
 
-//#include "task.h"
-
 #include "logger.h"
 #include "ddecomm.h"
 
@@ -11,14 +9,21 @@ int main(int argc, char *argv[])
     QCoreApplication a(argc, argv);
 
     Logger logger;
-    DdeComm mon("KBSTARDS", "eds");
-    QThread thread;
+    DdeComm* comm = DdeComm::getInstance();
+    QObject::connect(comm, SIGNAL(log(QString)), &logger, SLOT(log(QString)), Qt::QueuedConnection);
 
-    QObject::connect(&mon, SIGNAL(log(QString)), &logger, SLOT(log(QString)));
-    QObject::connect(&thread, SIGNAL(started()), &mon, SLOT(initiate()));
+    QString ret = comm->request("VBDDESV", "LinkTopic", "TextBox");
+    logger.log(ret);
 
-    mon.moveToThread(&thread);
-    thread.start();
+    comm->poke(QString("VBDDESV"), QString("LinkTopic"), QString("TextBox"), QString("1234마바사다"));
+    comm->execute(QString("VBDDESV"), QString("LinkTopic"), QString("12345678"));
+    comm->advise(QString("VBDDESV"), QString("LinkTopic"), QString("TextBox"));
+
+//    QThread thread;
+//    QObject::connect(&thread, SIGNAL(started()), &mon, SLOT(initiate()));
+
+//    mon.moveToThread(&thread);
+//    thread.start();
 
     return a.exec();
 }
