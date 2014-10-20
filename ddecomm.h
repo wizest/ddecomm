@@ -12,7 +12,6 @@
 class DdeComm : public QObject
 {
     Q_OBJECT    
-
 private:
     QMutex mSync;
     unsigned long mDdeInstance;
@@ -35,14 +34,16 @@ public:
     void poke(QString application, QString topic, QString item, QString text);
     void execute(QString application, QString topic, QString command);
 
-    unsigned long openConversation(QString application, QString topic);
-    void closeConversation(unsigned long conversation);
+    unsigned long open(QString application, QString topic);
+    void close(unsigned long conversation);
 
     void advise(unsigned long conversation, QString item);
     void unadvise(unsigned long conversation, QString item);
 
 signals:
-    void advised(unsigned long conversation, QString item, QString text);
+    void conversationUpdated(unsigned long conversation, bool isOpened);
+    void adviceUpdated(unsigned long conversation, QString item, bool isStarted);
+    void advised(unsigned long conversation, QString application, QString topic, QString item, QString text);
 
     void log(QString msg);   
 };
