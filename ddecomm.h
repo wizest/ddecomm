@@ -30,7 +30,7 @@ private:
     void release();
 
 public:
-    unsigned long _getDdeInstId() {
+    unsigned long _getDdeIdInst() {
         return mDdeInstance;
     }
 

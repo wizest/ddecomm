@@ -25,7 +25,7 @@ static HDDEDATA CALLBACK DdeCallback(
         DWORD dwData2)  // Transaction-specific data.
 {
     DdeComm* comm = DdeComm::getInstance();
-    unsigned long idInst = comm->_getDdeInstId();   // uninitialized if nonzero
+    unsigned long idInst = comm->_getDdeIdInst();   // uninitialized if nonzero
 
     // debug
     QString msg = QString("Callback: uType=%1h, uFmt=%2h, hconv=%3h, hsz1=%4h, hsz2=%5h, hdata=%6h, dwData1=%7h, dwData2=%8h")
