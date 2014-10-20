@@ -24,6 +24,10 @@ static HDDEDATA CALLBACK DdeCallback(
         DWORD dwData1,  // Transaction-specific data.
         DWORD dwData2)  // Transaction-specific data.
 {
+    DdeComm* comm = DdeComm::getInstance();
+    unsigned long idInst = comm->_getDdeInstId();   // uninitialized if nonzero
+
+    // debug
     QString msg = QString("Callback: uType=%1h, uFmt=%2h, hconv=%3h, hsz1=%4h, hsz2=%5h, hdata=%6h, dwData1=%7h, dwData2=%8h")
             .arg((ulong)uType, 0, 16)
             .arg((ulong)uFmt, 0, 16)
@@ -33,29 +37,40 @@ static HDDEDATA CALLBACK DdeCallback(
             .arg((ulong)hdata, 0, 16)
             .arg((ulong)dwData1, 0, 16)
             .arg((ulong)dwData2, 0, 16);
-
-    DdeComm* comm = DdeComm::getInstance();
     comm->log(msg);
-    return 0;
 
+    if(idInst && uType==XTYP_ADVDATA && uFmt==CF_TEXT)
+    {
+        wchar_t strBuff[255];
+        char szResult[255];
+        DWORD size;
 
-    //        if(uType==XTYP_ADVDATA && uFmt==CF_TEXT)
-    //        {
-    //            HSZ hszItem1 = DdeCreateStringHandle(idInst, szItem1, 0);
-    //            HSZ hszItem2 = DdeCreateStringHandle(idInst, szItem2, 0);
-    //            char szResult[255];
-    //            if((!DdeCmpStringHandles(hsz1, hszTopic)) && (!DdeCmpStringHandles(hsz2, hszItem1)))
-    //            {
-    //                DdeGetData(hdata, (unsigned char *)szResult, 255, 0);
-    //                printf("%s - %s\n", szItem1,szResult);
-    //            }
-    //            else if((!DdeCmpStringHandles(hsz1, hszTopic)) && (!DdeCmpStringHandles(hsz2, hszItem2)))
-    //            {
-    //                DdeGetData(hdata, (unsigned char *)szResult, 255, 0);
-    //                printf("%s - %s\n", szItem2,szResult);
-    //            }
-    //        }
-    //        return 0;
+        // conversation
+        unsigned long conversation = (unsigned long)hconv;
+
+        // topic
+        size = DdeQueryString(idInst, hsz1, strBuff, sizeof(strBuff) / sizeof(wchar_t), CP_WINUNICODE);
+        QString topic = QString::fromWCharArray(strBuff, size);
+        DdeFreeStringHandle(idInst, hsz1);
+
+        // item
+        size = DdeQueryString(idInst, hsz2, strBuff, sizeof(strBuff) / sizeof(wchar_t), CP_WINUNICODE);
+        QString item = QString::fromWCharArray(strBuff, size);
+        DdeFreeStringHandle(idInst, hsz2);
+
+        // data
+        size = DdeGetData(hdata, (unsigned char *)szResult, sizeof(szResult), 0);
+        QString text = QString::fromLatin1(szResult, size);
+
+        // fire event
+        comm->advised(conversation, topic, item, text);
+
+        comm->log(QString("Advised: conv=%1h, topic=%2, item=%3, text=%4")
+                  .arg((ulong)hconv, 0, 16).arg(topic).arg(item).arg(text));
+        return (HDDEDATA)DDE_FACK;
+    }
+    else
+        return (HDDEDATA)DDE_FNOTPROCESSED;
 }
 
 DdeComm::DdeComm(QObject *parent)
@@ -137,6 +152,7 @@ QString DdeComm::request(QString application, QString topic, QString item)
     QString text;
     DWORD idInst = mDdeInstance;
     HCONV hConv = _openConv(idInst, application, topic);
+    unsigned long conversation = (unsigned long)hConv;
     if (hConv) {
         HSZ hszItem = DdeCreateStringHandle(idInst, item.toStdWString().c_str(), CP_WINUNICODE);
         HDDEDATA hData = DdeClientTransaction(NULL, 0, hConv, hszItem, CF_TEXT, XTYP_REQUEST, DDE_TIMOUT_MS, NULL);
@@ -147,6 +163,7 @@ QString DdeComm::request(QString application, QString topic, QString item)
             char szResult[255];
             DWORD size = DdeGetData(hData, (unsigned char *)szResult, sizeof(szResult), 0);
             text = QString::fromLatin1(szResult, size);
+            requested(conversation, topic, item, text);
         }
         else {
             UINT errCode = DdeGetLastError(mDdeInstance);
@@ -166,14 +183,15 @@ void DdeComm::poke(QString application, QString topic, QString item, QString tex
 {
     DWORD idInst = mDdeInstance;
     HCONV hConv = _openConv(idInst, application, topic);
+    unsigned long conversation = (unsigned long)hConv;
     if (hConv) {
         HSZ hszItem = DdeCreateStringHandle(idInst, item.toStdWString().c_str(), CP_WINUNICODE);
         QByteArray byteArray = text.toLocal8Bit();
         byteArray.append((char)0);  // zero terminated string
         DdeClientTransaction((LPBYTE)byteArray.data(), byteArray.size(), hConv, hszItem, CF_TEXT, XTYP_POKE, DDE_TIMOUT_MS, NULL);
-
         DdeFreeStringHandle(idInst, hszItem);
         _closeConv(hConv);
+        poked(conversation, topic, item, text);
     }
     else {
         UINT errCode = DdeGetLastError(mDdeInstance);
@@ -185,6 +203,7 @@ void DdeComm::execute(QString application, QString topic, QString command)
 {
     DWORD idInst = mDdeInstance;
     HCONV hConv = _openConv(idInst, application, topic);
+    unsigned long conversation = (unsigned long)hConv;
     if (hConv) {
         QByteArray byteArray = command.toLocal8Bit();
         byteArray.append((char)0);  // zero terminated string
@@ -192,10 +211,12 @@ void DdeComm::execute(QString application, QString topic, QString command)
         if (hData)   {
             DdeClientTransaction((LPBYTE)hData, 0xFFFFFFFF, hConv, 0L, 0, XTYP_EXECUTE, DDE_TIMOUT_MS, NULL);
             DdeFreeDataHandle(hData);
+            executed(conversation, topic, command);
         }
         else {
             UINT errCode = DdeGetLastError(mDdeInstance);
-            Log(tr("Command faild: app=%1, topic=%2, cmd=%3, errCode=%4h").arg(application).arg(topic).arg(command).arg(errCode, 0, 16));
+            Log(tr("Command faild: app=%1, topic=%2, cmd=%3, errCode=%4h")
+                .arg(application).arg(topic).arg(command).arg(errCode, 0, 16));
         }
         _closeConv(hConv);
     }
@@ -214,11 +235,12 @@ unsigned long DdeComm::open(QString application, QString topic)
     if (hConv) {
         Log(tr("New conversation opened: application=%1, topic=%2, conv=%3h")
             .arg(application).arg(topic).arg(conversation, 0, 16));
-        conversationUpdated(conversation, true);
+        opened(conversation, application, topic);
     }
     else {
         UINT errCode = DdeGetLastError(mDdeInstance);
-        Log(tr("No conversation opened: application=%1, topic=%2, errCode=%3h").arg(application).arg(topic).arg(errCode, 0, 16));
+        Log(tr("No conversation opened: application=%1, topic=%2, errCode=%3h")
+            .arg(application).arg(topic).arg(errCode, 0, 16));
     }
     return conversation;
 }
@@ -230,7 +252,7 @@ void DdeComm::close(unsigned long conversation)
     BOOL ret = _closeConv(hConv);
     if (ret) {
         Log(tr("Conversation closed: conv=%1h").arg(conversation, 0, 16));
-        conversationUpdated(conversation, false);
+        closed(conversation);
     }
     else {
         UINT errCode = DdeGetLastError(mDdeInstance);

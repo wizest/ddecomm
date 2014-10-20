@@ -10,7 +10,11 @@
 #define DDEITEM     QString::fromWCharArray(L"R1C1")
 
 #define DDEPOKE     QString::fromWCharArray(L"1234ABCD")
+
 #define DDECOMMAND  QString::fromWCharArray(L"[SELECT(\"R1C1:R2C2\")]")
+//#define DDECOMMAND  QString::fromWCharArray(L"[OPEN(\"Test.xlsx\")]")
+//#define DDECOMMAND  QString::fromWCharArray(L"[CLOSE(FALSE)]")
+
 
 int main(int argc, char *argv[])
 {

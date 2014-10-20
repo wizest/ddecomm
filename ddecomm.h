@@ -11,7 +11,7 @@
 /// @note       Only support CF_TEXT type
 class DdeComm : public QObject
 {
-    Q_OBJECT    
+    Q_OBJECT
 private:
     QMutex mSync;
     unsigned long mDdeInstance;
@@ -30,22 +30,29 @@ private:
     void release();
 
 public:
+    unsigned long _getDdeInstId() {
+        return mDdeInstance;
+    }
+
+public:
     QString request(QString application, QString topic, QString item);
     void poke(QString application, QString topic, QString item, QString text);
     void execute(QString application, QString topic, QString command);
-
-    unsigned long open(QString application, QString topic);
-    void close(unsigned long conversation);
-
     void advise(unsigned long conversation, QString item);
     void unadvise(unsigned long conversation, QString item);
+    unsigned long open(QString application, QString topic); // conversation to advise
+    void close(unsigned long conversation); // conversation to advise
 
 signals:
-    void conversationUpdated(unsigned long conversation, bool isOpened);
-    void adviceUpdated(unsigned long conversation, QString item, bool isStarted);
-    void advised(unsigned long conversation, QString application, QString topic, QString item, QString text);
+    void requested(unsigned long conversation, QString topic, QString item, QString text);
+    void poked(unsigned long conversation, QString topic, QString item, QString text);
+    void executed(unsigned long conversation, QString topic, QString command);
+    void advised(unsigned long conversation, QString topic, QString item, QString text);
+    void adviceUpdated(unsigned long conversation, QString item, bool started);
+    void opened(unsigned long conversation, QString application, QString topic);
+    void closed(unsigned long conversation);
 
-    void log(QString msg);   
+    void log(QString msg);
 };
 
 #endif // DDECOMM_H
