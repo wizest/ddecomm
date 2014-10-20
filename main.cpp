@@ -17,7 +17,9 @@ int main(int argc, char *argv[])
 
     comm->poke(QString("VBDDESV"), QString("LinkTopic"), QString("TextBox"), QString("1234마바사다"));
     comm->execute(QString("VBDDESV"), QString("LinkTopic"), QString("12345678"));
-    comm->advise(QString("VBDDESV"), QString("LinkTopic"), QString("TextBox"));
+
+    unsigned long conv = comm->openConversation(QString("VBDDESV"), QString("LinkTopic"));
+    comm->advise(conv, QString("TextBox"));
 
 //    QThread thread;
 //    QObject::connect(&thread, SIGNAL(started()), &mon, SLOT(initiate()));

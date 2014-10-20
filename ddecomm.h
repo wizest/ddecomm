@@ -35,13 +35,14 @@ public:
     void poke(QString application, QString topic, QString item, QString text);
     void execute(QString application, QString topic, QString command);
 
-    unsigned long advise(QString application, QString topic, QString item);
+    unsigned long openConversation(QString application, QString topic);
+    void closeConversation(unsigned long conversation);
+
+    void advise(unsigned long conversation, QString item);
     void unadvise(unsigned long conversation, QString item);
 
 signals:
-    void adviceStarted(unsigned long conversation, QString application, QString topic, QString item);
-    void adviceStopped(unsigned long conversation, QString item);
-    void advised(unsigned long conversation, QString application, QString topic, QString item, QString text);
+    void advised(unsigned long conversation, QString item, QString text);
 
     void log(QString msg);   
 };

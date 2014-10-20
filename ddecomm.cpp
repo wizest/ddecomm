@@ -176,7 +176,7 @@ void DdeComm::release()
     log(tr("DDE released"));
 }
 
-static inline HCONV openConv(DWORD idInst, QString application, QString topic)
+static inline HCONV _openConv(DWORD idInst, QString application, QString topic)
 {
     //DDE Connect to Server using given AppName and topic.
     HSZ hszApp = DdeCreateStringHandle(idInst, application.toStdWString().c_str(), CP_WINUNICODE);
@@ -187,7 +187,7 @@ static inline HCONV openConv(DWORD idInst, QString application, QString topic)
     return hConv;
 }
 
-static inline void closeConv(HCONV hConv)
+static inline void _closeConv(HCONV hConv)
 {
     DdeDisconnect(hConv);
 }
@@ -196,7 +196,7 @@ QString DdeComm::request(QString application, QString topic, QString item)
 {
     QString text;
     DWORD idInst = mDdeInstance;
-    HCONV hConv = openConv(idInst, application, topic);
+    HCONV hConv = _openConv(idInst, application, topic);
     if (hConv) {
         LPCWSTR szItem = item.toStdWString().c_str();
         HSZ hszItem = DdeCreateStringHandle(idInst, szItem, CP_WINUNICODE);
@@ -211,7 +211,7 @@ QString DdeComm::request(QString application, QString topic, QString item)
         else {
             log(tr("No request transaction: app=%1, topic=%2, item=%3").arg(application).arg(topic).arg(item));
         }
-        closeConv(hConv);
+        _closeConv(hConv);
     }
     else
         log(tr("No conversation opened"));
@@ -221,7 +221,7 @@ QString DdeComm::request(QString application, QString topic, QString item)
 void DdeComm::poke(QString application, QString topic, QString item, QString text)
 {
     DWORD idInst = mDdeInstance;
-    HCONV hConv = openConv(idInst, application, topic);
+    HCONV hConv = _openConv(idInst, application, topic);
     if (hConv) {
         LPCWSTR szItem = item.toStdWString().c_str();
         HSZ hszItem = DdeCreateStringHandle(idInst, szItem, CP_WINUNICODE);
@@ -230,7 +230,7 @@ void DdeComm::poke(QString application, QString topic, QString item, QString tex
         DdeClientTransaction((LPBYTE)byteArray.data(), byteArray.size(), hConv, hszItem, CF_TEXT, XTYP_POKE, DDE_TIMOUT_MS, NULL);
 
         DdeFreeStringHandle(idInst, hszItem);
-        closeConv(hConv);
+        _closeConv(hConv);
     }
     else
         log(tr("No conversation opened"));
@@ -239,7 +239,7 @@ void DdeComm::poke(QString application, QString topic, QString item, QString tex
 void DdeComm::execute(QString application, QString topic, QString command)
 {
     DWORD idInst = mDdeInstance;
-    HCONV hConv = openConv(idInst, application, topic);
+    HCONV hConv = _openConv(idInst, application, topic);
     if (hConv) {
         QByteArray byteArray = command.toLocal8Bit();
         byteArray.append((char)0);  // zero terminated string
@@ -251,36 +251,79 @@ void DdeComm::execute(QString application, QString topic, QString command)
         else {
             log(tr("Command faild: app=%1, topic=%2,cmd=%3").arg(application).arg(topic).arg(command));
         }
-        closeConv(hConv);
+        _closeConv(hConv);
     }
     else
         log(tr("No conversation opened"));
 }
 
-unsigned long DdeComm::advise(QString application, QString topic, QString item)
+unsigned long DdeComm::openConversation(QString application, QString topic)
 {
     DWORD idInst = mDdeInstance;
-    HCONV hConv = openConv(idInst, application, topic);
+    HCONV hConv = _openConv(idInst, application, topic);
     unsigned long conversation = (unsigned long)hConv;
+    if (hConv)
+        log(tr("New conversation opened: application=%1, topic=%2, conv=%3h")
+            .arg(application).arg(topic).arg(QString::number(conversation, 16)));
+    else
+        log(tr("No conversation opened: application=%1, topic=%2").arg(application).arg(topic));
+    return conversation;
+}
+
+void DdeComm::closeConversation(unsigned long conversation)
+{
+    HCONV hConv = (HCONV)conversation;
+    _closeConv(hConv);
+    log(tr("Conversation closed: conv=%1h").arg(QString::number(conversation, 16)));
+}
+
+
+//    unsigned long DdeComm::advise(QString application, QString topic, QString item)
+//    {
+//        DWORD idInst = mDdeInstance;
+//        HCONV hConv = openConv(idInst, application, topic);
+//        unsigned long conversation = (unsigned long)hConv;
+//        if (hConv) {
+//            LPCWSTR szItem = item.toStdWString().c_str();
+//            HSZ hszItem = DdeCreateStringHandle(idInst, szItem, CP_WINUNICODE);
+//            HDDEDATA hData = DdeClientTransaction(NULL, 0, hConv, hszItem, CF_TEXT, XTYP_ADVSTART, DDE_TIMOUT_MS, NULL);
+//            DdeFreeStringHandle(idInst, hszItem);
+//            if (hData) {
+//                log(tr("New advice started: conv=%1h, app=%2, topic=%3, item=%4")
+//                    .arg(QString::number(conversation, 16)).arg(application).arg(topic).arg(item));
+//                adviceAdded(conversation, item);
+//            }
+//            else {
+//                log(tr("No advice transaction: conv=%1h, app=%2, topic=%3, item=%4")
+//                    .arg(QString::number(conversation, 16)).arg(application).arg(topic).arg(item));
+//                closeConv(hConv);
+//            }
+//        }
+//        else
+//            log(tr("No conversation opened"));
+//        return conversation;
+//    }
+
+void DdeComm::advise(unsigned long conversation, QString item)
+{
+    DWORD idInst = mDdeInstance;
+    HCONV hConv = (HCONV) conversation;
     if (hConv) {
         LPCWSTR szItem = item.toStdWString().c_str();
         HSZ hszItem = DdeCreateStringHandle(idInst, szItem, CP_WINUNICODE);
         HDDEDATA hData = DdeClientTransaction(NULL, 0, hConv, hszItem, CF_TEXT, XTYP_ADVSTART, DDE_TIMOUT_MS, NULL);
         DdeFreeStringHandle(idInst, hszItem);
         if (hData) {
-            log(tr("New advice started: conv=%1h, app=%2, topic=%3, item=%4")
-                .arg(QString::number(conversation, 16)).arg(application).arg(topic).arg(item));
-            adviceStarted(conversation, application, topic, item);
+            log(tr("New advice started: conv=%1h, item=%2")
+                .arg(QString::number(conversation, 16)).arg(item));
         }
         else {
-            log(tr("No advice transaction: conv=%1h, app=%2, topic=%3, item=%4")
-                .arg(QString::number(conversation, 16)).arg(application).arg(topic).arg(item));
-            closeConv(hConv);
+            log(tr("No advice transaction: conv=%1h, item=%2")
+                .arg(QString::number(conversation, 16)).arg(item));
         }
     }
     else
         log(tr("No conversation opened"));
-    return conversation;
 }
 
 void DdeComm::unadvise(unsigned long conversation, QString item)
@@ -300,8 +343,7 @@ void DdeComm::unadvise(unsigned long conversation, QString item)
             log(tr("No advice transaction: conv=%1h, item=%2")
                 .arg(QString::number(conversation, 16)).arg(item));
         }
-        closeConv(hConv);
-        adviceStopped(conversation, item);
+        _closeConv(hConv);
     }
     else
         log(tr("No conversation opened"));
