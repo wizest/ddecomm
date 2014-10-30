@@ -14,7 +14,7 @@ class DdeComm : public QObject
     Q_OBJECT
 private:
     QMutex mSync;
-    unsigned long mDdeInstance;
+    ulong mDdeInstance;
 
 public:
     static DdeComm* getInstance() {
@@ -30,27 +30,28 @@ private:
     void release();
 
 public:
-    unsigned long _getDdeIdInst() {
+    ulong _getDdeIdInst() {
         return mDdeInstance;
     }
+    bool isAvailable(QString application, QString topic);
 
 public:
     QString request(QString application, QString topic, QString item);
-    void poke(QString application, QString topic, QString item, QString text);
-    void execute(QString application, QString topic, QString command);
-    void advise(unsigned long conversation, QString item);
-    void unadvise(unsigned long conversation, QString item);
-    unsigned long open(QString application, QString topic); // conversation to advise
-    void close(unsigned long conversation); // conversation to advise
+    bool poke(QString application, QString topic, QString item, QString text);
+    bool execute(QString application, QString topic, QString command);
+    bool advise(ulong conversation, QString item);
+    bool unadvise(ulong conversation, QString item);
+    ulong open(QString application, QString topic); // conversation to advise: if the function fails, the return value is 0L.
+    bool close(ulong conversation); // conversation to advise
 
 signals:
-    void requested(unsigned long conversation, QString topic, QString item, QString text);
-    void poked(unsigned long conversation, QString topic, QString item, QString text);
-    void executed(unsigned long conversation, QString topic, QString command);
-    void advised(unsigned long conversation, QString topic, QString item, QString text);
-    void adviceUpdated(unsigned long conversation, QString item, bool started);
-    void opened(unsigned long conversation, QString application, QString topic);
-    void closed(unsigned long conversation);
+    void requested(ulong conversation, QString topic, QString item, QString text);
+    void poked(ulong conversation, QString topic, QString item, QString text);
+    void executed(ulong conversation, QString topic, QString command);
+    void advised(ulong conversation, QString topic, QString item, QString text);
+    void adviceUpdated(ulong conversation, QString item, bool started);
+    void opened(ulong conversation, QString application, QString topic);
+    void closed(ulong conversation);
 
     void log(QString msg);
 };

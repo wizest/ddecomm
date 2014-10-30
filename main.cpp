@@ -5,15 +5,15 @@
 #include "logger.h"
 #include "ddecomm.h"
 
-#define DDEAPP      QString::fromWCharArray(L"Excel")
-#define DDETOPIC    QString::fromWCharArray(L"[Book1]Sheet1")
-#define DDEITEM     QString::fromWCharArray(L"R1C1")
+#define DDEAPP      QString::fromUtf8("Excel")
+#define DDETOPIC    QString::fromUtf8("[Book1]Sheet1")
+#define DDEITEM     QString::fromUtf8("R3C3")
 
-#define DDEPOKE     QString::fromWCharArray(L"1234ABCD")
+#define DDEPOKE     QString::fromUtf8("1234ABCD")
 
-#define DDECOMMAND  QString::fromWCharArray(L"[SELECT(\"R1C1:R2C2\")]")
-//#define DDECOMMAND  QString::fromWCharArray(L"[OPEN(\"Test.xlsx\")]")
-//#define DDECOMMAND  QString::fromWCharArray(L"[CLOSE(FALSE)]")
+#define DDECOMMAND  QString::fromUtf8("[SELECT(\"R1C1:R2C2\")]")
+//#define DDECOMMAND  QString::fromUtf8("[OPEN(\"Test.xlsx\")]")
+//#define DDECOMMAND  QString::fromUtf8("[CLOSE(FALSE)]")
 
 
 int main(int argc, char *argv[])
@@ -31,7 +31,8 @@ int main(int argc, char *argv[])
     // Execute
     comm->execute(DDEAPP, DDETOPIC, DDECOMMAND);
     // Advise
-    unsigned long conv = comm->open(DDEAPP, DDETOPIC);    comm->advise(conv, DDEITEM);
+    unsigned long conv = comm->open(DDEAPP, DDETOPIC);
+    comm->advise(conv, DDEITEM);
 
     return a.exec();
 }
