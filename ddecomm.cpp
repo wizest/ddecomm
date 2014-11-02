@@ -9,11 +9,23 @@
 #include <Ddeml.h>
 #include <string>
 #include <iostream>
+#include <QTextCodec>
 
 #include "ddecomm.h"
 
 #define DDE_TIMOUT_MS       1000
 #define Log(X)   log(QString("%1: %2").arg(__FUNCTION__).arg((X)))
+
+static QString getStringFromCFTEXT(char* buff, ulong size)
+{
+    // CF_TEXT type: Each line ends with a carriage return/linefeed (CR-LF) combination.
+    //               A null character signals the end of the data.
+
+//    QString text = (size >= 3) ? QString::fromLatin1(buff, size - 3) : 0;
+    QTextCodec* codec = QTextCodec::codecForLocale();
+    QString text = (size >= 3) ? codec->toUnicode(buff, size - 3) : 0;
+    return text;
+}
 
 static HDDEDATA CALLBACK DdeCallback(
         UINT uType,     // Transaction type.
@@ -40,7 +52,7 @@ static HDDEDATA CALLBACK DdeCallback(
             .arg((ulong)dwData2, 0, 16);
     comm->log(msg);
 
-    if(idInst && uType==XTYP_ADVDATA && uFmt==CF_TEXT)
+    if(idInst && uType == XTYP_ADVDATA && uFmt == CF_TEXT)
     {
         wchar_t strBuff[256];
         char szResult[256];
@@ -61,9 +73,7 @@ static HDDEDATA CALLBACK DdeCallback(
 
         // data
         size = DdeGetData(hdata, (unsigned char *)szResult, sizeof(szResult), 0);
-        // CF_TEXT type: Each line ends with a carriage return/linefeed (CR-LF) combination.
-        //               A null character signals the end of the data.
-        QString text = (size >= 3) ? QString::fromLatin1(szResult, size - 3) : 0;
+        QString text = getStringFromCFTEXT(szResult, size);
 
         // fire event
         comm->advised(conversation, topic, item, text);
@@ -175,10 +185,7 @@ QString DdeComm::request(QString application, QString topic, QString item)
         {
             char szResult[255];
             DWORD size = DdeGetData(hData, (unsigned char *)szResult, sizeof(szResult), 0);
-            // CF_TEXT type: Each line ends with a carriage return/linefeed (CR-LF) combination.
-            //               A null character signals the end of the data.
-            text = (size >= 3) ? QString::fromLatin1(szResult, size - 3) : 0;
-
+            text = getStringFromCFTEXT(szResult, size);
             requested(conversation, topic, item, text);
         }
         else {
@@ -236,7 +243,7 @@ bool DdeComm::execute(QString application, QString topic, QString command)
         }
         else {
             UINT errCode = DdeGetLastError(mDdeInstance);
-            Log(tr("Command faild: app=%1, topic=%2, cmd=%3, errCode=%4h")
+            Log(tr("Command failed: app=%1, topic=%2, cmd=%3, errCode=%4h")
                 .arg(application).arg(topic).arg(command).arg(errCode, 0, 16));
         }
         _closeConv(hConv);

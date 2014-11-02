@@ -7,7 +7,7 @@
 
 #define DDEAPP      QString::fromUtf8("Excel")
 #define DDETOPIC    QString::fromUtf8("[Book1]Sheet1")
-#define DDEITEM     QString::fromUtf8("R3C3")
+#define DDEITEM     QString::fromUtf8("R1C1")
 
 #define DDEPOKE     QString::fromUtf8("1234ABCD")
 

@@ -12,7 +12,10 @@ Logger::Logger(QObject *parent) :
 }
 
 void Logger::log(QString msg)
-{
-    wcout << QDateTime::currentDateTime().toString("yyMMdd-hhmmss.zzz ").toStdWString() ;
-          wcout << msg.toStdWString() << endl;
+{    
+//    wcout << QDateTime::currentDateTime().toString("yyMMdd-hhmmss.zzz ").toStdWString();
+//    wcout << msg.toStdWString() << endl;
+
+    cout << QDateTime::currentDateTime().toString("yyMMdd-hhmmss.zzz ").toStdString();
+    cout << msg.toStdString() << endl;
 }
