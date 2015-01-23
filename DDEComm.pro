@@ -17,8 +17,7 @@ TEMPLATE = app
 SOURCES += main.cpp \
     ddecomm.cpp
 
-HEADERS += \
-    callback.h \
+HEADERS += callback.h \
     ddecomm.h
 
 LIBS += -lUSER32
