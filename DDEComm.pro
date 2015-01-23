@@ -10,15 +10,15 @@ QT       -= gui
 TARGET = DDEComm
 CONFIG   += console
 CONFIG   -= app_bundle
+CONFIG   += c++11
 
 TEMPLATE = app
 
 SOURCES += main.cpp \
-    logger.cpp \
     ddecomm.cpp
 
 HEADERS += \
-    logger.h \
+    callback.h \
     ddecomm.h
 
 LIBS += -lUSER32
